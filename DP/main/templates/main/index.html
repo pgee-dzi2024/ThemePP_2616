@@ -1,10 +1,80 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
-<h1>Свали си html шаблон!</h1>
-</body>
-</html>
+{% extends 'main/base.html' %}
+
+{% block title %}Кампании{% endblock %}
+
+{% block content %}
+<div id="app">
+    <div class="card">
+        <h1>Система за масова имейл комуникация</h1>
+        <a class="btn btn-primary" href="/campaigns/new/">+ Нова кампания</a>
+        <button class="btn btn-secondary" @click="loadCampaigns">Обнови</button>
+    </div>
+
+    <div class="card">
+        <div v-if="error" class="alert alert-danger">[[ error ]]</div>
+
+        <table class="table" v-if="campaigns.length">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Име</th>
+                    <th>Тема</th>
+                    <th>Статус</th>
+                    <th>Получатели</th>
+                    <th>Изпратени</th>
+                    <th>Неуспешни</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="campaign in campaigns" :key="campaign.id">
+                    <td>[[ campaign.id ]]</td>
+                    <td>[[ campaign.name ]]</td>
+                    <td>[[ campaign.subject ]]</td>
+                    <td>
+                        <span class="badge" :class="'badge-' + campaign.status">[[ campaign.status ]]</span>
+                    </td>
+                    <td>[[ campaign.total_recipients ]]</td>
+                    <td>[[ campaign.sent_count ]]</td>
+                    <td>[[ campaign.failed_count ]]</td>
+                    <td>
+                        <a class="btn btn-primary" :href="'/campaigns/' + campaign.id + '/'">Детайли</a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p v-else>Няма кампании.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const { createApp } = Vue;
+
+createApp({
+    delimiters: ['[[', ']]'],
+    data() {
+        return {
+            campaigns: [],
+            error: ''
+        }
+    },
+    mounted() {
+        this.loadCampaigns();
+    },
+    methods: {
+        async loadCampaigns() {
+            this.error = '';
+            try {
+                const response = await axios.get('/api/campaigns/');
+                this.campaigns = response.data;
+            } catch (err) {
+                this.error = 'Грешка при зареждане на кампаниите.';
+            }
+        }
+    }
+}).mount('#app');
+</script>
+{% endblock %}

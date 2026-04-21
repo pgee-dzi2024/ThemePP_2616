@@ -129,7 +129,17 @@ STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
+# SMTP настройки
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.example.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'your_email@example.com'
+EMAIL_HOST_PASSWORD = 'your_password'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# Worker настройки
+EMAIL_MAX_RETRY_ATTEMPTS = 3
+EMAIL_RETRY_DELAY_SECONDS = 2
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
