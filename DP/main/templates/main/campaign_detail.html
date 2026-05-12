@@ -1,0 +1,214 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Детайли за кампания{% endblock %}
+
+{% block content %}
+<div id="app">
+    <div class="card">
+        <h1>Детайли за кампания</h1>
+        <a class="btn btn-secondary" href="/">← Назад</a>
+    </div>
+
+    <div class="card" v-if="campaign">
+        <h2>[[ campaign.name ]]</h2>
+        <p><strong>Тема:</strong> [[ campaign.subject ]]</p>
+        <p><strong>Статус:</strong> [[ campaign.status ]]</p>
+        <p><strong>Тип:</strong> [[ campaign.content_type ]]</p>
+
+        <div class="alert alert-info">
+            <p><strong>Общо:</strong> [[ campaign.total_recipients ]]</p>
+            <p><strong>Изпратени:</strong> [[ campaign.sent_count ]]</p>
+            <p><strong>Неуспешни:</strong> [[ campaign.failed_count ]]</p>
+            <p><strong>Чакащи:</strong> [[ campaign.pending_count ]]</p>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <button class="btn btn-success" @click="startCampaign">Старт</button>
+            <button class="btn btn-warning" @click="pauseCampaign">Пауза</button>
+            <button class="btn btn-danger" @click="stopCampaign">Стоп</button>
+            <button class="btn btn-secondary" @click="loadCampaign">Обнови</button>
+        </div>
+
+        <div v-if="message" class="alert alert-success">[[ message ]]</div>
+        <div v-if="error" class="alert alert-danger">[[ error ]]</div>
+
+        <h3>Качване на получатели</h3>
+        <div class="form-group">
+            <textarea class="form-control" v-model="emailsText" rows="5" placeholder="Въведи имейл адреси, по един на ред"></textarea>
+        </div>
+        <button class="btn btn-primary" @click="importRecipients">Импортирай получатели</button>
+
+        <h3 style="margin-top: 30px;">Импорт от CSV файл</h3>
+        <div class="form-group">
+            <input type="file" class="form-control" @change="handleFileChange" accept=".csv">
+        </div>
+        <button class="btn btn-primary" @click="uploadRecipientsFile">Качи CSV файл</button>
+
+        <h3 style="margin-top: 30px;">Получатели</h3>
+        <table class="table" v-if="campaign.recipients && campaign.recipients.length">
+            <thead>
+                <tr>
+                    <th>Имейл</th>
+                    <th>Статус</th>
+                    <th>Опити</th>
+                    <th>Последна грешка</th>
+                    <th>Изпратен на</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="item in campaign.recipients" :key="item.id">
+                    <td>[[ item.email ]]</td>
+                    <td>[[ item.status ]]</td>
+                    <td>[[ item.attempts ]]</td>
+                    <td>[[ item.last_error ]]</td>
+                    <td>[[ item.sent_at ]]</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p v-else>Няма получатели.</p>
+
+        <h3 style="margin-top: 30px;">Лог</h3>
+        <table class="table" v-if="campaign.logs && campaign.logs.length">
+            <thead>
+                <tr>
+                    <th>Получател</th>
+                    <th>Статус</th>
+                    <th>Съобщение</th>
+                    <th>Дата</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="log in campaign.logs" :key="log.id">
+                    <td>[[ log.recipient ]]</td>
+                    <td>[[ log.status ]]</td>
+                    <td>[[ log.message ]]</td>
+                    <td>[[ log.created_at ]]</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p v-else>Няма лог записи.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const { createApp } = Vue;
+
+createApp({
+    delimiters: ['[[', ']]'],
+    data() {
+        return {
+            campaign: null,
+            emailsText: '',
+            selectedFile: null,
+            message: '',
+            error: ''
+        }
+    },
+    mounted() {
+        this.loadCampaign();
+    },
+    methods: {
+        async loadCampaign() {
+            this.error = '';
+            try {
+                const response = await axios.get('/api/campaigns/{{ pk }}/');
+                this.campaign = response.data;
+            } catch (err) {
+                this.error = 'Грешка при зареждане на кампанията.';
+            }
+        },
+        async startCampaign() {
+            this.message = '';
+            this.error = '';
+            try {
+                const response = await axios.post('/api/campaigns/{{ pk }}/start/');
+                this.message = response.data.message || 'Кампанията е стартирана.';
+                await this.loadCampaign();
+            } catch (err) {
+                this.error = err.response?.data?.detail || 'Грешка при стартиране.';
+            }
+        },
+        async pauseCampaign() {
+            this.message = '';
+            this.error = '';
+            try {
+                const response = await axios.post('/api/campaigns/{{ pk }}/pause/');
+                this.message = response.data.message || 'Кампанията е поставена на пауза.';
+                await this.loadCampaign();
+            } catch (err) {
+                this.error = err.response?.data?.detail || 'Грешка при пауза.';
+            }
+        },
+        async stopCampaign() {
+            this.message = '';
+            this.error = '';
+            try {
+                const response = await axios.post('/api/campaigns/{{ pk }}/stop/');
+                this.message = response.data.message || 'Кампанията е спряна.';
+                await this.loadCampaign();
+            } catch (err) {
+                this.error = err.response?.data?.detail || 'Грешка при спиране.';
+            }
+        },
+        async importRecipients() {
+            this.message = '';
+            this.error = '';
+
+            const emails = this.emailsText
+                .split('\n')
+                .map(e => e.trim())
+                .filter(e => e);
+
+            try {
+                const response = await axios.post('/api/campaigns/{{ pk }}/import-recipients/', {
+                    emails: emails
+                });
+
+                this.message = response.data.message || 'Получателите са импортирани.';
+                this.emailsText = '';
+                await this.loadCampaign();
+            } catch (err) {
+                this.error = err.response?.data?.detail || 'Грешка при импорт на получатели.';
+            }
+        },
+        handleFileChange(event) {
+            this.selectedFile = event.target.files[0] || null;
+        },
+        async uploadRecipientsFile() {
+            this.message = '';
+            this.error = '';
+
+            if (!this.selectedFile) {
+                this.error = 'Моля, избери CSV файл.';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', this.selectedFile);
+
+            try {
+                const response = await axios.post(
+                    '/api/campaigns/{{ pk }}/import-recipients-file/',
+                    formData,
+                    {
+                        headers: {
+                            'Content-Type': 'multipart/form-data'
+                        }
+                    }
+                );
+
+                this.message = response.data.message || 'Файлът е качен успешно.';
+                this.selectedFile = null;
+                await this.loadCampaign();
+            } catch (err) {
+                this.error = err.response?.data?.detail || 'Грешка при качване на файла.';
+            }
+        },
+    }
+}).mount('#app');
+</script>
+{% endblock %}
